@@ -122,3 +122,12 @@ const stream = new CsvParseStream({
 ```ts
 import { COMMA, CRLF, HEADER_ABSENT, HEADER_PRESENT, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "@juners/csv-stream/rfc4180";
 ```
+
+## See also
+
+- RFC 4180 - Common Format and MIME Type for Comma-Separated Values (CSV) Files \
+[https://datatracker.ietf.org/doc/html/rfc4180](https://datatracker.ietf.org/doc/html/rfc4180)
+- Definition of tab-separated-values (tsv) - IANA Media Types \
+[https://www.iana.org/assignments/media-types/text/tab-separated-values](https://www.iana.org/assignments/media-types/text/tab-separated-values)
+- Comma-separated values - Wikipedia (en) \
+[https://en.wikipedia.org/wiki/Comma-separated_values](https://en.wikipedia.org/wiki/Comma-separated_values)
