@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Add generic column key type parameter `<K extends string = string>` to `CsvRecord`, `CsvInputRecord`, `CsvRowToRecordStream`, `InputCsvRecordStream`, `parseCsvRecords`, `parseCsvRecordResponse`, `CsvRecordToRowStream`, `OutputCsvRecordStream`, and `stringifyCsvRecords` so record keys are strongly typed and inferred from `headers`.
+- Add specification links (`See also`) to `README.md` and `publishConfig` to `package.json`.
+
 ## 1.0.0
 
 - Initial release.
