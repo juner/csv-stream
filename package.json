@@ -20,6 +20,9 @@
       "default": "./dist/rfc4180.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test:watch": "vitest watch --coverage",
     "test": "vitest run --coverage --coverage.reporter=cobertura --coverage.reporter=text",
