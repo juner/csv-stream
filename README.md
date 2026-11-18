@@ -1,18 +1,23 @@
 # @juners/csv-stream
 
-CSV parsing and stringifying with standard Web Streams.
+CSV and TSV parsing and stringifying with standard Web Streams and `AsyncIterable` / `for await...of` helpers.
 
 ## Features
 
-- Incrementally parses UTF-8 byte chunks or string chunks with `CsvParseStream`
-- Handles quoted fields, doubled quotes, embedded line breaks, CRLF, and UTF-8 BOM
-- Serializes rows to UTF-8 `Uint8Array` chunks with `CsvStringifyStream`
-- Composes with `pipeThrough()`, `Response`, and other Web Streams APIs
-- Configurable field delimiter, record separator, and queuing strategies
+- [x] Incrementally parses UTF-8 byte chunks or string chunks into CSV rows (`CsvParseStream`, `parseCsv`)
+- [x] Header-aware key-value record streams and helpers (`InputCsvRecordStream`, `OutputCsvRecordStream`, `parseCsvRecords`, `stringifyCsvRecords`)
+- [x] Handles quoted fields, doubled quotes, embedded line breaks, CRLF/LF/CR, and UTF-8 BOM
+- [x] Serializes rows or records to UTF-8 `Uint8Array` chunks (`CsvStringifyStream`, `stringifyCsv`)
+- [x] Composes with `pipeThrough()`, `Response`, and other Web Streams APIs
+- [x] `Content-Type` based format detection (`text/csv`, `text/tab-separated-values`) for `fetch()` responses (`parseCsvResponse`)
+- [x] Maximum length (`maxLength`) protection, empty line skipping (`skipEmptyLines`), and custom error recovery (`errorFallback`)
+- [x] Format constants via subpath export (`@juners/csv-stream/rfc4180`)
 
-## Parsing
+---
 
-`CsvParseStream` emits each record as an array of strings:
+## Parsing Rows
+
+`CsvParseStream` emits each record as an array of strings (`string[]`):
 
 ```ts
 import { CsvParseStream } from "@juners/csv-stream";
@@ -25,16 +30,31 @@ for await (const row of rows) {
 }
 ```
 
-By default, the field separator is a comma. A custom one-character delimiter can be specified:
+Or use the async generator helper `parseCsv`:
 
 ```ts
-const rows = source.pipeThrough(new CsvParseStream({ delimiter: ";" }));
+import { parseCsv } from "@juners/csv-stream";
+
+for await (const row of parseCsv(["name,note\r\n", "\"Ada\",\"said \"\"hello\"\"\""])) {
+  console.log(row);
+}
 ```
 
-## Stringifying
+## Parsing Records (with Headers)
 
-`CsvStringifyStream` accepts arrays of primitive cell values and emits UTF-8 CSV bytes. `null` and
-`undefined` become empty fields, and records end with CRLF by default.
+`InputCsvRecordStream` and `parseCsvRecords` map rows into key-value objects using the first row (or explicit `headers`) as keys:
+
+```ts
+import { parseCsvRecords } from "@juners/csv-stream";
+
+for await (const record of parseCsvRecords(["id,name\n1,Ada\n2,Grace"])) {
+  console.log(record); // { id: "1", name: "Ada" }, { id: "2", name: "Grace" }
+}
+```
+
+## Stringifying Rows & Records
+
+`CsvStringifyStream` accepts arrays of primitive cell values and emits UTF-8 CSV bytes. `null` and `undefined` become empty fields, and records end with CRLF by default:
 
 ```ts
 import { CsvStringifyStream } from "@juners/csv-stream";
@@ -42,25 +62,55 @@ import { CsvStringifyStream } from "@juners/csv-stream";
 const csv = new CsvStringifyStream();
 const writer = csv.writable.getWriter();
 
-await writer.write(["name", "note"]);
-await writer.write(["Ada", `said "hello"`]);
-await writer.close();
+void writer.write(["name", "note"]);
+void writer.write(["Ada", "said \"hello\""]);
+void writer.close();
 
 const response = new Response(csv.readable, {
   headers: { "content-type": "text/csv; charset=utf-8" },
 });
 ```
 
-Fields containing a delimiter, quote, CR, or LF are quoted, and internal quotes are doubled.
-Configure `recordSeparator` as `"\n"` to use LF instead of the default `"\r\n"`.
+Or serialize objects directly with `OutputCsvRecordStream` / `stringifyCsvRecords`:
 
-## Error handling
+```ts
+import { stringifyCsvRecords } from "@juners/csv-stream";
 
-Malformed input, including quotes inside unquoted fields, unexpected characters after a closing
-quote, and unterminated quoted fields, errors the parse stream with a `SyntaxError`.
+const chunks = stringifyCsvRecords([
+  { id: 1, name: "Ada" },
+  { id: 2, name: "Grace" },
+]);
+```
 
-## API
+## Fetch Response with `Content-Type` Detection
 
-- `CsvParseStreamOptions`: `delimiter`, `writableStrategy`, and `readableStrategy`
-- `CsvStringifyStreamOptions`: `delimiter`, `recordSeparator`, and queuing strategies
-- `CsvCell`: supported cell value types (`string`, `number`, `boolean`, `bigint`, `null`, and `undefined`)
+`parseCsvResponse` inspects `Content-Type` (`text/csv` or `text/tab-separated-values`) and selects the matching delimiter automatically:
+
+```ts
+import { parseCsvResponse } from "@juners/csv-stream";
+
+const response = await fetch("https://example.com/data.tsv");
+for await (const row of parseCsvResponse(response)) {
+  console.log(row);
+}
+```
+
+## Error Handling & Safety
+
+By default, malformed input (quotes inside unquoted fields, unexpected characters after a closing quote, or unterminated quoted fields) errors the stream with a `SyntaxError`. Use `errorFallback` to skip or recover from malformed rows, and `maxLength` to guard against unbounded fields:
+
+```ts
+import { CsvParseStream } from "@juners/csv-stream";
+
+const stream = new CsvParseStream({
+  skipEmptyLines: true,
+  maxLength: 65536,
+  errorFallback: false, // silently skip malformed rows and continue at the next line
+});
+```
+
+## Format Constants (`@juners/csv-stream/rfc4180`)
+
+```ts
+import { COMMA, CRLF, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "@juners/csv-stream/rfc4180";
+```

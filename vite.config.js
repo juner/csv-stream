@@ -6,6 +6,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
+        rfc4180: resolve(__dirname, "src/rfc4180.ts"),
       },
       formats: ["es"],
     },

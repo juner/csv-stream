@@ -14,6 +14,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./rfc4180": {
+      "types": "./dist/rfc4180.d.ts",
+      "default": "./dist/rfc4180.js"
     }
   },
   "scripts": {
