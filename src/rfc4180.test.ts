@@ -1,4 +1,4 @@
-import { COMMA, CR, CRLF, DQUOTE, EXTENSION, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "./rfc4180.js";
+import { COMMA, CR, CRLF, DQUOTE, EXTENSION, HEADER_ABSENT, HEADER_PRESENT, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "./rfc4180.js";
 import { describe, test } from "vitest";
 
 describe("rfc4180 constants", () => {
@@ -12,5 +12,7 @@ describe("rfc4180 constants", () => {
     expect(MIME_TYPE).toBe("text/csv");
     expect(TSV_MIME_TYPE).toBe("text/tab-separated-values");
     expect(EXTENSION).toBe(".csv");
+    expect(HEADER_PRESENT).toBe("present");
+    expect(HEADER_ABSENT).toBe("absent");
   });
 });

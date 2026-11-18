@@ -10,7 +10,7 @@ CSV and TSV parsing and stringifying with standard Web Streams and `AsyncIterabl
 - [x] Supports Shift_JIS, EUC-JP, UTF-16, and any [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) label (`label`, `fatal`, `ignoreBOM`)
 - [x] Serializes rows or records to UTF-8 `Uint8Array` chunks (`CsvStringifyStream`, `stringifyCsv`), with optional UTF-8 BOM output (`bom: true`)
 - [x] Composes with `pipeThrough()`, `Response`, and other Web Streams APIs
-- [x] `Content-Type` and `charset` detection (`text/csv; charset=Shift_JIS`, `text/tab-separated-values`, etc.) for `fetch()` responses (`parseCsvResponse`)
+- [x] `Content-Type`, `charset`, and RFC 4180 `header` (`present` / `absent`) detection (`text/csv; charset=Shift_JIS; header=present`, `text/tab-separated-values`, etc.) for `fetch()` responses (`parseCsvResponse`, `parseCsvRecordResponse`)
 - [x] Maximum length (`maxLength`) protection, empty line skipping (`skipEmptyLines`), and custom error recovery (`errorFallback`)
 - [x] Format constants via subpath export (`@juners/csv-stream/rfc4180`)
 
@@ -83,16 +83,23 @@ const chunks = stringifyCsvRecords([
 ]);
 ```
 
-## Fetch Response with `Content-Type` Detection
+## Fetch Response with `Content-Type`, `charset`, and `header` Detection
 
-`parseCsvResponse` inspects `Content-Type` (`text/csv` or `text/tab-separated-values`) and selects the matching delimiter automatically:
+`parseCsvResponse` and `parseCsvRecordResponse` inspect `Content-Type` (`text/csv` or `text/tab-separated-values`), `charset`, and the RFC 4180 `header` parameter (`present` or `absent`) automatically:
 
 ```ts
-import { parseCsvResponse } from "@juners/csv-stream";
+import { parseCsvRecordResponse, parseCsvResponse } from "@juners/csv-stream";
 
+// Row array stream (if header=present is in Content-Type, the header row is skipped by default)
 const response = await fetch("https://example.com/data.tsv");
 for await (const row of parseCsvResponse(response)) {
   console.log(row);
+}
+
+// Record object stream (respects header=present / header=absent and charset)
+const recordResponse = await fetch("https://example.com/users.csv");
+for await (const record of parseCsvRecordResponse(recordResponse)) {
+  console.log(record);
 }
 ```
 
@@ -113,5 +120,5 @@ const stream = new CsvParseStream({
 ## Format Constants (`@juners/csv-stream/rfc4180`)
 
 ```ts
-import { COMMA, CRLF, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "@juners/csv-stream/rfc4180";
+import { COMMA, CRLF, HEADER_ABSENT, HEADER_PRESENT, LF, MIME_TYPE, TAB, TSV_MIME_TYPE } from "@juners/csv-stream/rfc4180";
 ```

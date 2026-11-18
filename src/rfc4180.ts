@@ -53,3 +53,15 @@ export const TSV_MIME_TYPE = "text/tab-separated-values";
  * Standard file extension for CSV files.
  */
 export const EXTENSION = ".csv";
+
+/**
+ * RFC 4180 `header` parameter value indicating the presence of a header line.
+ * @see https://datatracker.ietf.org/doc/html/rfc4180#section-3
+ */
+export const HEADER_PRESENT = "present";
+
+/**
+ * RFC 4180 `header` parameter value indicating the absence of a header line.
+ * @see https://datatracker.ietf.org/doc/html/rfc4180#section-3
+ */
+export const HEADER_ABSENT = "absent";

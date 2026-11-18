@@ -6,15 +6,21 @@ export type CsvRecord = Record<string, string | undefined>;
 
 export type CsvRowToRecordStreamOptions = {
   /**
-   * Explicit column names. When omitted or `true`, the first incoming row is used as the header.
+   * Explicit column names. When omitted, the first incoming row is used as the header.
    */
   headers?: readonly string[]
+  /**
+   * Skip the first incoming row when explicit `headers` are provided (e.g. to replace an existing header row).
+   * Defaults to `false`.
+   */
+  skipFirstRow?: boolean
 } & QueuingStrategiesOptions<readonly string[], CsvRecord>;
 
 function makeInternalCsvRowToRecordStream(options: CsvRowToRecordStreamOptions): {
   args: ConstructorParameters<TransformStreamConstructor<readonly string[], CsvRecord>>
 } {
   let headers: readonly string[] | undefined = options.headers;
+  let skipFirstRow = options.skipFirstRow ?? false;
   const { writableStrategy, readableStrategy } = options;
 
   const args: ConstructorParameters<TransformStreamConstructor<readonly string[], CsvRecord>> = [
@@ -22,6 +28,10 @@ function makeInternalCsvRowToRecordStream(options: CsvRowToRecordStreamOptions):
       transform(row, controller) {
         if (headers === undefined) {
           headers = [...row];
+          return;
+        }
+        if (skipFirstRow) {
+          skipFirstRow = false;
           return;
         }
         const record: CsvRecord = {};
@@ -54,9 +64,9 @@ export type InputCsvRecordStreamOptions = Omit<CsvParseStreamOptions, "readableS
   & { readableStrategy?: QueuingStrategy<CsvRecord> };
 
 function makeInternalInputCsvRecordStream(options: InputCsvRecordStreamOptions) {
-  const { label, fatal, ignoreBOM, delimiter, skipEmptyLines, maxLength, errorFallback, headers, writableStrategy, readableStrategy } = options;
-  const parser = new CsvParseStream({ label, fatal, ignoreBOM, delimiter, skipEmptyLines, maxLength, errorFallback, writableStrategy });
-  const mapper = new CsvRowToRecordStream({ headers, readableStrategy });
+  const { label, fatal, ignoreBOM, delimiter, skipHeader, skipEmptyLines, maxLength, errorFallback, headers, skipFirstRow, writableStrategy, readableStrategy } = options;
+  const parser = new CsvParseStream({ label, fatal, ignoreBOM, delimiter, skipHeader, skipEmptyLines, maxLength, errorFallback, writableStrategy });
+  const mapper = new CsvRowToRecordStream({ headers, skipFirstRow, readableStrategy });
   const { writable } = parser;
   const readable = parser.readable.pipeThrough(mapper);
   return { writable, readable };

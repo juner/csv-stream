@@ -72,9 +72,10 @@ describe("CsvParseStream", () => {
     expect(await parseChunks([""])).toEqual([]);
   });
 
-  test("supports skipEmptyLines option", async ({ expect }) => {
+  test("supports skipEmptyLines and skipHeader options", async ({ expect }) => {
     expect(await parseChunks(["a,b\n\nc,d\r\n\r\n"])).toEqual([["a", "b"], [""], ["c", "d"], [""]]);
     expect(await parseChunks(["a,b\n\nc,d\r\n\r\n"], { skipEmptyLines: true })).toEqual([["a", "b"], ["c", "d"]]);
+    expect(await parseChunks(["col1,col2\n1,2\n3,4"], { skipHeader: true })).toEqual([["1", "2"], ["3", "4"]]);
   });
 
   test("enforces maxLength option", async ({ expect }) => {

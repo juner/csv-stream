@@ -1,5 +1,5 @@
 import { describe, test } from "vitest";
-import { detectCsvCharset, detectCsvStreamFormat, parseCsvResponse } from "./parseCsvResponse.js";
+import { detectCsvCharset, detectCsvHeader, detectCsvStreamFormat, parseCsvRecordResponse, parseCsvResponse } from "./parseCsvResponse.js";
 
 describe("detectCsvStreamFormat", () => {
   test("detects csv and tsv MIME types", ({ expect }) => {
@@ -22,6 +22,17 @@ describe("detectCsvCharset", () => {
   });
 });
 
+describe("detectCsvHeader", () => {
+  test("extracts RFC 4180 header parameter (present or absent)", ({ expect }) => {
+    expect(detectCsvHeader("text/csv; header=present")).toBe("present");
+    expect(detectCsvHeader("text/csv; charset=utf-8; header=absent")).toBe("absent");
+    expect(detectCsvHeader("text/csv; header=\"PRESENT\"")).toBe("present");
+    expect(detectCsvHeader("text/csv; header=invalid")).toBeUndefined();
+    expect(detectCsvHeader("text/csv")).toBeUndefined();
+    expect(detectCsvHeader(null)).toBeUndefined();
+  });
+});
+
 describe("parseCsvResponse", () => {
   test("parses a text/csv Response", async ({ expect }) => {
     const response = new Response("a,b\n1,2", {
@@ -29,6 +40,20 @@ describe("parseCsvResponse", () => {
     });
     const rows = await Array.fromAsync(parseCsvResponse(response));
     expect(rows).toEqual([["a", "b"], ["1", "2"]]);
+  });
+
+  test("skips header row automatically when header=present is in Content-Type", async ({ expect }) => {
+    const response = new Response("col1,col2\n1,2", {
+      headers: { "content-type": "text/csv; header=present" },
+    });
+    const rows = await Array.fromAsync(parseCsvResponse(response));
+    expect(rows).toEqual([["1", "2"]]);
+
+    const keepHeaderResponse = new Response("col1,col2\n1,2", {
+      headers: { "content-type": "text/csv; header=present" },
+    });
+    const allRows = await Array.fromAsync(parseCsvResponse(keepHeaderResponse, { skipHeader: false }));
+    expect(allRows).toEqual([["col1", "col2"], ["1", "2"]]);
   });
 
   test("parses a Shift_JIS Response using charset from Content-Type", async ({ expect }) => {
@@ -67,5 +92,51 @@ describe("parseCsvResponse", () => {
       headers: { "content-type": "text/csv" },
     });
     expect(() => parseCsvResponse(noBody)).toThrow(TypeError);
+  });
+});
+
+describe("parseCsvRecordResponse", () => {
+  test("parses records using the first row when header=present or omitted", async ({ expect }) => {
+    const response = new Response("id,name\n1,Ada", {
+      headers: { "content-type": "text/csv; header=present" },
+    });
+    const records = await Array.fromAsync(parseCsvRecordResponse(response));
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
+  });
+
+  test("replaces existing header row when header=present and explicit headers are given", async ({ expect }) => {
+    const response = new Response("old_id,old_name\n1,Ada", {
+      headers: { "content-type": "text/csv; header=present" },
+    });
+    const records = await Array.fromAsync(parseCsvRecordResponse(response, { headers: ["id", "name"] }));
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
+  });
+
+  test("maps from the first row when header=absent and explicit headers are given, or TSV", async ({ expect }) => {
+    const response = new Response("1\tAda\n2\tGrace", {
+      headers: { "content-type": "text/tab-separated-values; header=absent" },
+    });
+    const records = await Array.fromAsync(parseCsvRecordResponse(response, { headers: ["id", "name"] }));
+    expect(records).toEqual([
+      { id: "1", name: "Ada" },
+      { id: "2", name: "Grace" },
+    ]);
+  });
+
+  test("throws when header=absent without headers, unsupported content-type, or null body", ({ expect }) => {
+    const absentNoHeaders = new Response("1,Ada", {
+      headers: { "content-type": "text/csv; header=absent" },
+    });
+    expect(() => parseCsvRecordResponse(absentNoHeaders)).toThrow(TypeError);
+
+    const badType = new Response("1,Ada", {
+      headers: { "content-type": "application/json" },
+    });
+    expect(() => parseCsvRecordResponse(badType)).toThrow(TypeError);
+
+    const noBody = new Response(null, {
+      headers: { "content-type": "text/csv" },
+    });
+    expect(() => parseCsvRecordResponse(noBody)).toThrow(TypeError);
   });
 });

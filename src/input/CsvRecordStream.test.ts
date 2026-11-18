@@ -20,7 +20,7 @@ describe("CsvRowToRecordStream", () => {
     ]);
   });
 
-  test("uses explicit headers when provided", async ({ expect }) => {
+  test("uses explicit headers when provided, optionally skipping the first row", async ({ expect }) => {
     const stream = new CsvRowToRecordStream({ headers: ["colA", "colB"] });
     const writer = stream.writable.getWriter();
     const writing = (async () => {
@@ -31,6 +31,18 @@ describe("CsvRowToRecordStream", () => {
     await writing;
 
     expect(records).toEqual([{ colA: "val1", colB: "val2" }]);
+
+    const skipStream = new CsvRowToRecordStream({ headers: ["colA", "colB"], skipFirstRow: true });
+    const skipWriter = skipStream.writable.getWriter();
+    const skipWriting = (async () => {
+      await skipWriter.write(["oldA", "oldB"]);
+      await skipWriter.write(["val1", "val2"]);
+      await skipWriter.close();
+    })();
+    const skipRecords = await Array.fromAsync(skipStream.readable);
+    await skipWriting;
+
+    expect(skipRecords).toEqual([{ colA: "val1", colB: "val2" }]);
   });
 });
 

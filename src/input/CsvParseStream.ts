@@ -17,6 +17,8 @@ export type CsvParseStreamOptions = {
   label?: string
   /** Field separator. Must be one character and cannot be a quote or line break. Defaults to `","`. */
   delimiter?: string
+  /** Skip the first parsed row (header row). Defaults to `false`. */
+  skipHeader?: boolean
   /** Skip completely empty lines (lines with no characters between line breaks). Defaults to `false`. */
   skipEmptyLines?: boolean
   /** Maximum allowed character length for a single field or row. Errors with `RangeError` when exceeded. */
@@ -56,6 +58,7 @@ function makeInternalCsvParseStream(options: CsvParseStreamOptions): {
 } {
   const delimiter = options.delimiter ?? COMMA;
   const skipEmptyLines = options.skipEmptyLines ?? false;
+  let skipHeader = options.skipHeader ?? false;
   const { label, fatal, ignoreBOM, maxLength, errorFallback, writableStrategy, readableStrategy } = options;
   validateDelimiter(delimiter);
 
@@ -81,6 +84,11 @@ function makeInternalCsvParseStream(options: CsvParseStreamOptions): {
 
   const emitRow = (controller: TransformStreamDefaultController<string[]>) => {
     if (skipEmptyLines && !hasData && row.length === 0 && field.length === 0) {
+      resetRow();
+      return;
+    }
+    if (skipHeader) {
+      skipHeader = false;
       resetRow();
       return;
     }
