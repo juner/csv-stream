@@ -1,5 +1,5 @@
 import { describe, test } from "vitest";
-import { detectCsvStreamFormat, parseCsvResponse } from "./parseCsvResponse.js";
+import { detectCsvCharset, detectCsvStreamFormat, parseCsvResponse } from "./parseCsvResponse.js";
 
 describe("detectCsvStreamFormat", () => {
   test("detects csv and tsv MIME types", ({ expect }) => {
@@ -13,6 +13,15 @@ describe("detectCsvStreamFormat", () => {
   });
 });
 
+describe("detectCsvCharset", () => {
+  test("extracts unquoted and quoted charset parameters", ({ expect }) => {
+    expect(detectCsvCharset("text/csv; charset=Shift_JIS")).toBe("Shift_JIS");
+    expect(detectCsvCharset("text/csv; charset=\"utf-8\"")).toBe("utf-8");
+    expect(detectCsvCharset("text/csv")).toBeUndefined();
+    expect(detectCsvCharset(null)).toBeUndefined();
+  });
+});
+
 describe("parseCsvResponse", () => {
   test("parses a text/csv Response", async ({ expect }) => {
     const response = new Response("a,b\n1,2", {
@@ -20,6 +29,16 @@ describe("parseCsvResponse", () => {
     });
     const rows = await Array.fromAsync(parseCsvResponse(response));
     expect(rows).toEqual([["a", "b"], ["1", "2"]]);
+  });
+
+  test("parses a Shift_JIS Response using charset from Content-Type", async ({ expect }) => {
+    // "あ,い\n" in Shift_JIS: あ(0x82 0xA0) ,(0x2C) い(0x82 0xA2) \n(0x0A)
+    const sjisBytes = new Uint8Array([0x82, 0xA0, 0x2C, 0x82, 0xA2, 0x0A]);
+    const response = new Response(sjisBytes, {
+      headers: { "content-type": "text/csv; charset=Shift_JIS" },
+    });
+    const rows = await Array.fromAsync(parseCsvResponse(response));
+    expect(rows).toEqual([["あ", "い"]]);
   });
 
   test("parses a text/tab-separated-values Response", async ({ expect }) => {

@@ -7,9 +7,10 @@ CSV and TSV parsing and stringifying with standard Web Streams and `AsyncIterabl
 - [x] Incrementally parses UTF-8 byte chunks or string chunks into CSV rows (`CsvParseStream`, `parseCsv`)
 - [x] Header-aware key-value record streams and helpers (`InputCsvRecordStream`, `OutputCsvRecordStream`, `parseCsvRecords`, `stringifyCsvRecords`)
 - [x] Handles quoted fields, doubled quotes, embedded line breaks, CRLF/LF/CR, and UTF-8 BOM
-- [x] Serializes rows or records to UTF-8 `Uint8Array` chunks (`CsvStringifyStream`, `stringifyCsv`)
+- [x] Supports Shift_JIS, EUC-JP, UTF-16, and any [WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) label (`label`, `fatal`, `ignoreBOM`)
+- [x] Serializes rows or records to UTF-8 `Uint8Array` chunks (`CsvStringifyStream`, `stringifyCsv`), with optional UTF-8 BOM output (`bom: true`)
 - [x] Composes with `pipeThrough()`, `Response`, and other Web Streams APIs
-- [x] `Content-Type` based format detection (`text/csv`, `text/tab-separated-values`) for `fetch()` responses (`parseCsvResponse`)
+- [x] `Content-Type` and `charset` detection (`text/csv; charset=Shift_JIS`, `text/tab-separated-values`, etc.) for `fetch()` responses (`parseCsvResponse`)
 - [x] Maximum length (`maxLength`) protection, empty line skipping (`skipEmptyLines`), and custom error recovery (`errorFallback`)
 - [x] Format constants via subpath export (`@juners/csv-stream/rfc4180`)
 

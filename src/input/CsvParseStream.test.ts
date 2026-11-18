@@ -38,6 +38,27 @@ describe("CsvParseStream", () => {
 
     expect(rows).toEqual([["a", "b"], ["c", "d"]]);
     expect(await parseChunks(["\uFEFFx,y"])).toEqual([["x", "y"]]);
+    expect(await parseChunks(["\uFEFFx,y"], { ignoreBOM: true })).toEqual([["\uFEFFx", "y"]]);
+  });
+
+  test("decodes Shift_JIS byte chunks split across multi-byte boundaries", async ({ expect }) => {
+    // "名前,備考\r\n山田,\"テスト\"\r\n" in Shift_JIS:
+    // 名(0x96 0xBC) 前(0x91 0x4F) ,(0x2C) 備(0x94 0xF5) 考(0x8D 0x6C) \r\n(0x0D 0x0A)
+    // 山(0x8E 0x52) 田(0x93 0x63) ,(0x2C) "(0x22) テ(0x83 0x65) ス(0x83 0x58) ト(0x83 0x67) "(0x22) \r\n(0x0D 0x0A)
+    // Note: ソ(0x83 0x5C) has 0x5C ('\') as trail byte; 表(0x95 0x5C) also has 0x5C.
+    const sjisChunk1 = new Uint8Array([0x96, 0xBC, 0x91, 0x4F, 0x2C, 0x94]);
+    const sjisChunk2 = new Uint8Array([0xF5, 0x8D, 0x6C, 0x0D, 0x0A, 0x8E, 0x52, 0x93, 0x63, 0x2C, 0x22, 0x83, 0x65, 0x83, 0x58, 0x83, 0x67, 0x22, 0x0D, 0x0A]);
+
+    const rows = await parseChunks([sjisChunk1, sjisChunk2], { label: "shift_jis" });
+    expect(rows).toEqual([
+      ["名前", "備考"],
+      ["山田", "テスト"],
+    ]);
+  });
+
+  test("supports fatal TextDecoder option on invalid byte sequences", async ({ expect }) => {
+    const invalidUtf8 = new Uint8Array([0xFF, 0xFE]);
+    await expect(parseChunks([invalidUtf8], { fatal: true })).rejects.toThrow(TypeError);
   });
 
   test("handles CR not followed by LF across chunks", async ({ expect }) => {

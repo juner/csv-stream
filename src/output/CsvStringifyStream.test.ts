@@ -22,4 +22,10 @@ describe("CsvStringifyStream", () => {
     const rows = await Array.fromAsync(parseCsv(bytes, { delimiter: ";" }));
     expect(rows).toEqual([["one", "two;and more"]]);
   });
+
+  test("prepends UTF-8 BOM when bom: true is set", async ({ expect }) => {
+    const chunks = await Array.fromAsync(stringifyCsv([["a", "b"]], { bom: true, recordSeparator: "\n" }));
+    expect(chunks[0]).toEqual(new Uint8Array([0xEF, 0xBB, 0xBF]));
+    expect(await Array.fromAsync(parseCsv(chunks))).toEqual([["a", "b"]]);
+  });
 });

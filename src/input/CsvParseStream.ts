@@ -13,6 +13,8 @@ export type CsvParseErrorFallback = false | ((
 ) => void);
 
 export type CsvParseStreamOptions = {
+  /** Text encoding label passed to `TextDecoder` (e.g. `"utf-8"`, `"shift_jis"`, `"euc-jp"`). Defaults to `"utf-8"`. */
+  label?: string
   /** Field separator. Must be one character and cannot be a quote or line break. Defaults to `","`. */
   delimiter?: string
   /** Skip completely empty lines (lines with no characters between line breaks). Defaults to `false`. */
@@ -26,7 +28,7 @@ export type CsvParseStreamOptions = {
    * - function: called with the error and helper methods (`enqueue`, `error`) to control recovery.
    */
   errorFallback?: CsvParseErrorFallback
-} & QueuingStrategiesOptions<Uint8Array | string, string[]>;
+} & TextDecoderOptions & QueuingStrategiesOptions<Uint8Array | string, string[]>;
 
 function handleError(
   err: unknown,
@@ -54,10 +56,10 @@ function makeInternalCsvParseStream(options: CsvParseStreamOptions): {
 } {
   const delimiter = options.delimiter ?? COMMA;
   const skipEmptyLines = options.skipEmptyLines ?? false;
-  const { maxLength, errorFallback, writableStrategy, readableStrategy } = options;
+  const { label, fatal, ignoreBOM, maxLength, errorFallback, writableStrategy, readableStrategy } = options;
   validateDelimiter(delimiter);
 
-  const decoder = new TextDecoder();
+  const decoder = new TextDecoder(label, { fatal, ignoreBOM });
   let field = "";
   let row: string[] = [];
   let rowLength = 0;
@@ -98,7 +100,7 @@ function makeInternalCsvParseStream(options: CsvParseStreamOptions): {
     let startIndex = 0;
     if (firstCharacter && input.length > 0) {
       firstCharacter = false;
-      if (input[0] === "\uFEFF") {
+      if (!ignoreBOM && input[0] === "\uFEFF") {
         startIndex = 1;
       }
     }

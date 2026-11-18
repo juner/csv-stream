@@ -62,9 +62,9 @@ export type OutputCsvRecordStreamOptions = Omit<CsvStringifyStreamOptions, "writ
   & { writableStrategy?: QueuingStrategy<CsvInputRecord> };
 
 function makeInternalOutputCsvRecordStream(options: OutputCsvRecordStreamOptions) {
-  const { delimiter, recordSeparator, headers, includeHeader, writableStrategy, readableStrategy } = options;
+  const { delimiter, recordSeparator, bom, headers, includeHeader, writableStrategy, readableStrategy } = options;
   const mapper = new CsvRecordToRowStream({ headers, includeHeader, writableStrategy });
-  const stringifier = new CsvStringifyStream({ delimiter, recordSeparator, readableStrategy });
+  const stringifier = new CsvStringifyStream({ delimiter, recordSeparator, bom, readableStrategy });
   const { writable } = mapper;
   const readable = mapper.readable.pipeThrough(stringifier);
   return { writable, readable };

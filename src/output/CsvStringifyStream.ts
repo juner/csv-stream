@@ -9,6 +9,8 @@ export type CsvStringifyStreamOptions = {
   delimiter?: string
   /** Record separator. Defaults to CRLF (`"\r\n"`) as specified by RFC 4180. */
   recordSeparator?: "\r\n" | "\n"
+  /** Prepend a UTF-8 BOM (`0xEF 0xBB 0xBF`) to the output stream (useful for opening UTF-8 CSV files in Excel). Defaults to `false`. */
+  bom?: boolean
 } & QueuingStrategiesOptions<readonly CsvCell[], Uint8Array>;
 
 function makeInternalCsvStringifyStream(options: CsvStringifyStreamOptions): {
@@ -16,12 +18,18 @@ function makeInternalCsvStringifyStream(options: CsvStringifyStreamOptions): {
 } {
   const delimiter = options.delimiter ?? COMMA;
   const recordSeparator = options.recordSeparator ?? CRLF;
+  const bom = options.bom ?? false;
   const { writableStrategy, readableStrategy } = options;
   validateDelimiter(delimiter);
   const encoder = new TextEncoder();
 
   const args: ConstructorParameters<TransformStreamConstructor<readonly CsvCell[], Uint8Array>> = [
     {
+      start(controller) {
+        if (bom) {
+          controller.enqueue(new Uint8Array([0xEF, 0xBB, 0xBF]));
+        }
+      },
       transform(row, controller) {
         const output = row.map((value) => {
           const text = value == null ? "" : String(value);

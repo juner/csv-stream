@@ -54,8 +54,8 @@ export type InputCsvRecordStreamOptions = Omit<CsvParseStreamOptions, "readableS
   & { readableStrategy?: QueuingStrategy<CsvRecord> };
 
 function makeInternalInputCsvRecordStream(options: InputCsvRecordStreamOptions) {
-  const { delimiter, skipEmptyLines, maxLength, errorFallback, headers, writableStrategy, readableStrategy } = options;
-  const parser = new CsvParseStream({ delimiter, skipEmptyLines, maxLength, errorFallback, writableStrategy });
+  const { label, fatal, ignoreBOM, delimiter, skipEmptyLines, maxLength, errorFallback, headers, writableStrategy, readableStrategy } = options;
+  const parser = new CsvParseStream({ label, fatal, ignoreBOM, delimiter, skipEmptyLines, maxLength, errorFallback, writableStrategy });
   const mapper = new CsvRowToRecordStream({ headers, readableStrategy });
   const { writable } = parser;
   const readable = parser.readable.pipeThrough(mapper);

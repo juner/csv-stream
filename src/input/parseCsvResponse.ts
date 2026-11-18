@@ -34,8 +34,23 @@ export function detectCsvStreamFormat(contentType: string | null): CsvStreamForm
 }
 
 /**
+ * Extracts the `charset` parameter from a `Content-Type` header value, if present.
+ *
+ * Examples:
+ * - `"text/csv; charset=Shift_JIS"` -> `"Shift_JIS"`
+ * - `"text/csv; charset=\"utf-8\""` -> `"utf-8"`
+ * - `"text/csv"` or `null` -> `undefined`
+ */
+export function detectCsvCharset(contentType: string | null): string | undefined {
+  if (contentType === null) return undefined;
+  const match = /;\s*charset\s*=\s*(?:"([^"]+)"|([^;\s]+))/iu.exec(contentType);
+  return match?.[1] ?? match?.[2];
+}
+
+/**
  * Parses a `fetch()` `Response` containing a CSV or TSV body into a `ReadableStream` of rows (`string[]`),
- * selecting the default delimiter from the response's `Content-Type` header unless explicitly overridden.
+ * selecting the default delimiter and character encoding (`charset`) from the response's `Content-Type` header
+ * unless explicitly overridden in `options`.
  *
  * @throws TypeError when the format cannot be detected or the response has no body.
  */
@@ -49,6 +64,7 @@ export function parseCsvResponse(response: Response, options?: ParseCsvResponseO
     throw new TypeError("csv-stream: the response has no body.");
   }
   const delimiter = options?.delimiter ?? (format === "tsv" ? TAB : COMMA);
-  const stream = new CsvParseStream({ ...options, delimiter });
+  const label = options?.label ?? detectCsvCharset(contentType);
+  const stream = new CsvParseStream({ ...options, delimiter, label });
   return response.body.pipeThrough(stream);
 }
