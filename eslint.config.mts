@@ -1,0 +1,75 @@
+import js from "@eslint/js";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import json from "@eslint/json";
+import markdown from "@eslint/markdown";
+import { defineConfig } from "eslint/config";
+import stylistic from "@stylistic/eslint-plugin";
+
+export default defineConfig([
+  {
+    ignores: [
+      `dist/**/**.*`,
+    ],
+  },
+  {
+    files: [`**/*.{js,mjs,cjs,ts,mts,cts}`],
+    plugins: { js },
+    extends: [js.configs.recommended],
+  },
+  {
+    files: [`**/*.{js,mjs,cjs,ts,mts,cts}`],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: [
+            "eslint.config.mts",
+            "vite.config.js",
+            "vitest.config.ts",
+            "utils/*.ts",
+          ],
+        },
+      },
+    },
+  },
+  {
+    files: [`**/*.{js,mjs,cjs,ts,mts,cts}`],
+    plugins: {
+      "@stylistic": stylistic,
+      "@typescript-eslint": tseslint.plugin,
+    },
+    extends: [
+      stylistic.configs.recommended,
+      tseslint.configs.recommendedTypeChecked,
+    ],
+    rules: {
+      "semi": [`error`],
+      "@stylistic/semi": ["error", "always"],
+      "no-unused-vars": [`off`],
+      "@typescript-eslint/no-unused-vars": [`error`, {
+        argsIgnorePattern: `^_`,
+        caughtErrorsIgnorePattern: `^_`,
+        destructuredArrayIgnorePattern: `^_`,
+        varsIgnorePattern: `^_`,
+      }],
+      "@stylistic/quotes": [`error`, "double", { allowTemplateLiterals: "always" }],
+      "@typescript-eslint/no-deprecated": [`error`],
+    },
+  },
+  { files: [`**/*.json`], ignores: [`**/tsconfig.json`, `package-lock.json`, `**/.vscode/*.json`], plugins: { json }, language: `json/json`, extends: [`json/recommended`] },
+  {
+    files: [
+      `**/tsconfig.json`,
+      `**/*.code-workspace`,
+      `**/.vscode/*.json`,
+    ],
+    plugins: { json },
+    language: "json/jsonc",
+    languageOptions: {
+      allowTrailingCommas: true,
+    },
+    extends: [json.configs.recommended],
+  },
+  { files: [`**/*.md`], plugins: { markdown }, language: `markdown/gfm`, extends: [markdown.configs.recommended] },
+]);
