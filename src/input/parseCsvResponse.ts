@@ -15,10 +15,10 @@ export type ParseCsvResponseOptions = {
   format?: CsvStreamFormat
 } & CsvParseStreamOptions;
 
-export type ParseCsvRecordResponseOptions = {
+export type ParseCsvRecordResponseOptions<K extends string = string> = {
   /** Explicit format. When set, `Content-Type` detection is skipped. */
   format?: CsvStreamFormat
-} & InputCsvRecordStreamOptions;
+} & InputCsvRecordStreamOptions<K>;
 
 /**
  * Detects the delimited text format from a `Content-Type` header value.
@@ -114,7 +114,7 @@ export function parseCsvResponse(response: Response, options?: ParseCsvResponseO
  *
  * @throws TypeError when the format cannot be detected, `header=absent` is set without `options.headers`, or the response has no body.
  */
-export function parseCsvRecordResponse(response: Response, options?: ParseCsvRecordResponseOptions): ReadableStream<CsvRecord> {
+export function parseCsvRecordResponse<K extends string = string>(response: Response, options?: ParseCsvRecordResponseOptions<K>): ReadableStream<CsvRecord<K>> {
   const contentType = response.headers.get("content-type");
   const format = options?.format ?? detectCsvStreamFormat(contentType);
   if (format === undefined) {
@@ -130,6 +130,6 @@ export function parseCsvRecordResponse(response: Response, options?: ParseCsvRec
   const delimiter = options?.delimiter ?? (format === "tsv" ? TAB : COMMA);
   const label = options?.label ?? detectCsvCharset(contentType);
   const skipFirstRow = options?.skipFirstRow ?? (headerParam === HEADER_PRESENT && options?.headers !== undefined);
-  const stream = new InputCsvRecordStream({ ...options, delimiter, label, skipFirstRow });
+  const stream = new InputCsvRecordStream<K>({ ...options, delimiter, label, skipFirstRow });
   return response.body.pipeThrough(stream);
 }

@@ -48,10 +48,12 @@ for await (const row of parseCsv(["name,note\r\n", "\"Ada\",\"said \"\"hello\"\"
 ```ts
 import { parseCsvRecords } from "@juners/csv-stream";
 
-for await (const record of parseCsvRecords(["id,name\n1,Ada\n2,Grace"])) {
+for await (const record of parseCsvRecords<"id" | "name">(["id,name\n1,Ada\n2,Grace"])) {
   console.log(record); // { id: "1", name: "Ada" }, { id: "2", name: "Grace" }
 }
 ```
+
+When `headers` is passed as an array of string literals (e.g. `{ headers: ["id", "name"] }`), the record keys are inferred automatically as `Record<"id" | "name", string | undefined>`.
 
 ## Stringifying Rows & Records
 

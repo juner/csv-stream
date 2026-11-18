@@ -1,5 +1,6 @@
-import { describe, test } from "vitest";
+import { describe, expectTypeOf, test } from "vitest";
 import { CsvRowToRecordStream, InputCsvRecordStream, parseCsvRecords } from "./CsvRecordStream.js";
+import type { CsvRecord } from "./CsvRecordStream.js";
 
 describe("CsvRowToRecordStream", () => {
   test("uses the first row as headers by default", async ({ expect }) => {
@@ -30,6 +31,7 @@ describe("CsvRowToRecordStream", () => {
     const records = await Array.fromAsync(stream.readable);
     await writing;
 
+    expectTypeOf(records).toEqualTypeOf<CsvRecord<"colA" | "colB">[]>();
     expect(records).toEqual([{ colA: "val1", colB: "val2" }]);
 
     const skipStream = new CsvRowToRecordStream({ headers: ["colA", "colB"], skipFirstRow: true });
@@ -48,11 +50,12 @@ describe("CsvRowToRecordStream", () => {
 
 describe("InputCsvRecordStream and parseCsvRecords", () => {
   test("parses CSV text into record objects", async ({ expect }) => {
-    const records = await Array.fromAsync(parseCsvRecords([
+    const records = await Array.fromAsync(parseCsvRecords<"id" | "name">([
       "id,name\r\n",
       "1,Ada\r\n2,Grace",
     ]));
 
+    expectTypeOf(records).toEqualTypeOf<CsvRecord<"id" | "name">[]>();
     expect(records).toEqual([
       { id: "1", name: "Ada" },
       { id: "2", name: "Grace" },
