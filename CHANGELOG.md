@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Fix `parseCsv`, `parseCsvRecords`, `stringifyCsv`, and `stringifyCsvRecords` so breaking out of a `for await...of` loop early cleanly closes the source iterable without an unhandled promise rejection, and propagate errors thrown by the source iterable by aborting the underlying stream writer.
+
 ## 1.0.1
 
 - Add generic column key type parameter `<K extends string = string>` to `CsvRecord`, `CsvInputRecord`, `CsvRowToRecordStream`, `InputCsvRecordStream`, `parseCsvRecords`, `parseCsvRecordResponse`, `CsvRecordToRowStream`, `OutputCsvRecordStream`, and `stringifyCsvRecords` so record keys are strongly typed and inferred from `headers`.
