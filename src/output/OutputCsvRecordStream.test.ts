@@ -77,4 +77,59 @@ describe("OutputCsvRecordStream and stringifyCsvRecords", () => {
 
     expect(chunks.map(c => new TextDecoder().decode(c)).join("")).toBe("a,b\n1,2\n");
   });
+
+  test("terminates cleanly and closes the source when breaking out of stringifyCsvRecords early", async ({ expect }) => {
+    let sourceClosed = false;
+    function* source() {
+      try {
+        yield { id: "1", name: "Ada" };
+        yield { id: "2", name: "Grace" };
+        yield { id: "3", name: "Linus" };
+      }
+      finally {
+        sourceClosed = true;
+      }
+    }
+
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stringifyCsvRecords(source(), { recordSeparator: "\n" })) {
+      chunks.push(chunk);
+      break;
+    }
+
+    expect(chunks.map(c => new TextDecoder().decode(c))).toEqual(["id,name\n"]);
+    expect(sourceClosed).toBe(true);
+  });
+
+  test("propagates upstream abort across OutputCsvRecordStream and stringifyCsvRecords", async ({ expect }) => {
+    const abortReason = new DOMException("Upstream aborted", "AbortError");
+    const stream = new OutputCsvRecordStream({ recordSeparator: "\n" });
+    const writer = stream.writable.getWriter();
+    const chunks: Uint8Array[] = [];
+
+    const reading = (async () => {
+      for await (const chunk of stream.readable) {
+        chunks.push(chunk);
+      }
+    })();
+
+    await writer.write({ id: "1", name: "Ada" });
+    await writer.abort(abortReason);
+
+    await expect(reading).rejects.toBe(abortReason);
+    expect(chunks.map(c => new TextDecoder().decode(c))).toEqual(["id,name\n", "1,Ada\n"]);
+
+    function* failingSource() {
+      yield { id: "1", name: "Ada" };
+      throw abortReason;
+    }
+
+    const iterChunks: Uint8Array[] = [];
+    await expect((async () => {
+      for await (const chunk of stringifyCsvRecords(failingSource(), { recordSeparator: "\n" })) {
+        iterChunks.push(chunk);
+      }
+    })()).rejects.toBe(abortReason);
+    expect(iterChunks.map(c => new TextDecoder().decode(c))).toEqual(["id,name\n", "1,Ada\n"]);
+  });
 });

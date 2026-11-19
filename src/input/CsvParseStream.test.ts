@@ -132,6 +132,25 @@ describe("CsvParseStream", () => {
       ["c", "d"],
     ]);
   });
+
+  test("propagates upstream abort without flushing incomplete or unterminated quoted fields", async ({ expect }) => {
+    const stream = new CsvParseStream();
+    const writer = stream.writable.getWriter();
+    const abortReason = new DOMException("Upstream aborted", "AbortError");
+    const rows: string[][] = [];
+
+    const reading = (async () => {
+      for await (const row of stream.readable) {
+        rows.push(row);
+      }
+    })();
+
+    await writer.write("a,b\n\"unterminated");
+    await writer.abort(abortReason);
+
+    await expect(reading).rejects.toBe(abortReason);
+    expect(rows).toEqual([["a", "b"]]);
+  });
 });
 
 describe("parseCsv", () => {
@@ -141,5 +160,43 @@ describe("parseCsv", () => {
       rows.push(row);
     }
     expect(rows).toEqual([["a", "b"], ["c", "d"]]);
+  });
+
+  test("terminates cleanly and closes the source when breaking out of the loop early", async ({ expect }) => {
+    let sourceClosed = false;
+    function* source() {
+      try {
+        yield "a,b\n";
+        yield "c,d\n";
+        yield "e,f\n";
+      }
+      finally {
+        sourceClosed = true;
+      }
+    }
+
+    const rows: string[][] = [];
+    for await (const row of parseCsv(source())) {
+      rows.push(row);
+      break;
+    }
+
+    expect(rows).toEqual([["a", "b"]]);
+    expect(sourceClosed).toBe(true);
+  });
+
+  test("propagates errors thrown by the source iterable", async ({ expect }) => {
+    function* failingSource() {
+      yield "a,b\n";
+      throw new Error("source failure");
+    }
+
+    const rows: string[][] = [];
+    await expect((async () => {
+      for await (const row of parseCsv(failingSource())) {
+        rows.push(row);
+      }
+    })()).rejects.toThrow("source failure");
+    expect(rows).toEqual([["a", "b"]]);
   });
 });

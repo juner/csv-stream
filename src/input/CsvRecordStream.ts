@@ -1,4 +1,5 @@
 import type { OmitQueuingStrategies, QueuingStrategiesOptions, TransformStreamConstructor } from "../types/index.js";
+import { pipeIterable } from "../internal/pipeIterable.js";
 import { CsvParseStream } from "./CsvParseStream.js";
 import type { CsvParseStreamOptions } from "./CsvParseStream.js";
 
@@ -95,14 +96,5 @@ export async function* parseCsvRecords<K extends string = string>(
   source: AsyncIterable<Uint8Array | string> | Iterable<Uint8Array | string>,
   options?: InputCsvRecordStreamOptions<K>,
 ): AsyncGenerator<CsvRecord<K>, void, undefined> {
-  const stream = new InputCsvRecordStream<K>(options);
-  const writer = stream.writable.getWriter();
-  const writePromise = (async () => {
-    for await (const chunk of source) {
-      await writer.write(chunk);
-    }
-    await writer.close();
-  })();
-  yield* stream.readable;
-  await writePromise;
+  yield* pipeIterable(source, new InputCsvRecordStream<K>(options));
 }

@@ -74,4 +74,60 @@ describe("InputCsvRecordStream and parseCsvRecords", () => {
 
     expect(records).toEqual([{ a: "10", b: "20" }]);
   });
+
+  test("terminates cleanly and closes the source when breaking out of parseCsvRecords early", async ({ expect }) => {
+    let sourceClosed = false;
+    function* source() {
+      try {
+        yield "id,name\n";
+        yield "1,Ada\n";
+        yield "2,Grace\n";
+        yield "3,Linus\n";
+      }
+      finally {
+        sourceClosed = true;
+      }
+    }
+
+    const records: CsvRecord<"id" | "name">[] = [];
+    for await (const record of parseCsvRecords<"id" | "name">(source())) {
+      records.push(record);
+      break;
+    }
+
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
+    expect(sourceClosed).toBe(true);
+  });
+
+  test("propagates upstream abort across InputCsvRecordStream and parseCsvRecords", async ({ expect }) => {
+    const abortReason = new DOMException("Upstream aborted", "AbortError");
+    const stream = new InputCsvRecordStream();
+    const writer = stream.writable.getWriter();
+    const records: CsvRecord[] = [];
+
+    const reading = (async () => {
+      for await (const record of stream.readable) {
+        records.push(record);
+      }
+    })();
+
+    await writer.write("id,name\n1,Ada\n\"unterminated");
+    await writer.abort(abortReason);
+
+    await expect(reading).rejects.toBe(abortReason);
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
+
+    function* failingSource() {
+      yield "id,name\n1,Ada\n";
+      throw abortReason;
+    }
+
+    const iterRecords: CsvRecord[] = [];
+    await expect((async () => {
+      for await (const record of parseCsvRecords(failingSource())) {
+        iterRecords.push(record);
+      }
+    })()).rejects.toBe(abortReason);
+    expect(iterRecords).toEqual([{ id: "1", name: "Ada" }]);
+  });
 });

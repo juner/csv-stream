@@ -93,6 +93,58 @@ describe("parseCsvResponse", () => {
     });
     expect(() => parseCsvResponse(noBody)).toThrow(TypeError);
   });
+
+  test("cancels the response body stream when breaking out of the loop early", async ({ expect }) => {
+    let bodyCancelled = false;
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(encoder.encode("a,b\n1,2\n"));
+      },
+      cancel() {
+        bodyCancelled = true;
+      },
+    });
+    const response = new Response(body, {
+      headers: { "content-type": "text/csv" },
+    });
+
+    const rows: string[][] = [];
+    for await (const row of parseCsvResponse(response)) {
+      rows.push(row);
+      break;
+    }
+
+    expect(rows).toEqual([["a", "b"]]);
+    expect(bodyCancelled).toBe(true);
+  });
+
+  test("propagates upstream response body abort without flushing incomplete rows", async ({ expect }) => {
+    const abortReason = new DOMException("Fetch aborted", "AbortError");
+    const encoder = new TextEncoder();
+    let pulled = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!pulled) {
+          pulled = true;
+          controller.enqueue(encoder.encode("a,b\n\"unterminated"));
+          return;
+        }
+        controller.error(abortReason);
+      },
+    });
+    const response = new Response(body, {
+      headers: { "content-type": "text/csv" },
+    });
+
+    const rows: string[][] = [];
+    await expect((async () => {
+      for await (const row of parseCsvResponse(response)) {
+        rows.push(row);
+      }
+    })()).rejects.toBe(abortReason);
+    expect(rows).toEqual([["a", "b"]]);
+  });
 });
 
 describe("parseCsvRecordResponse", () => {
@@ -138,5 +190,57 @@ describe("parseCsvRecordResponse", () => {
       headers: { "content-type": "text/csv" },
     });
     expect(() => parseCsvRecordResponse(noBody)).toThrow(TypeError);
+  });
+
+  test("cancels the response body stream when breaking out of the loop early", async ({ expect }) => {
+    let bodyCancelled = false;
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(encoder.encode("id,name\n1,Ada\n"));
+      },
+      cancel() {
+        bodyCancelled = true;
+      },
+    });
+    const response = new Response(body, {
+      headers: { "content-type": "text/csv" },
+    });
+
+    const records: Record<string, string | undefined>[] = [];
+    for await (const record of parseCsvRecordResponse(response)) {
+      records.push(record);
+      break;
+    }
+
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
+    await expect.poll(() => bodyCancelled).toBe(true);
+  });
+
+  test("propagates upstream response body abort in parseCsvRecordResponse", async ({ expect }) => {
+    const abortReason = new DOMException("Fetch aborted", "AbortError");
+    const encoder = new TextEncoder();
+    let pulled = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!pulled) {
+          pulled = true;
+          controller.enqueue(encoder.encode("id,name\n1,Ada\n\"unterminated"));
+          return;
+        }
+        controller.error(abortReason);
+      },
+    });
+    const response = new Response(body, {
+      headers: { "content-type": "text/csv" },
+    });
+
+    const records: Record<string, string | undefined>[] = [];
+    await expect((async () => {
+      for await (const record of parseCsvRecordResponse(response)) {
+        records.push(record);
+      }
+    })()).rejects.toBe(abortReason);
+    expect(records).toEqual([{ id: "1", name: "Ada" }]);
   });
 });

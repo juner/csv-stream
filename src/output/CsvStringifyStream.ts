@@ -1,4 +1,5 @@
 import type { QueuingStrategiesOptions, TransformStreamConstructor } from "../types/index.js";
+import { pipeIterable } from "../internal/pipeIterable.js";
 import { COMMA, validateDelimiter } from "../internal/validateDelimiter.js";
 import { CRLF, DQUOTE } from "../rfc4180.js";
 
@@ -65,14 +66,5 @@ export async function* stringifyCsv(
   source: AsyncIterable<readonly CsvCell[]> | Iterable<readonly CsvCell[]>,
   options?: CsvStringifyStreamOptions,
 ): AsyncGenerator<Uint8Array, void, undefined> {
-  const stream = new CsvStringifyStream(options);
-  const writer = stream.writable.getWriter();
-  const writePromise = (async () => {
-    for await (const row of source) {
-      await writer.write(row);
-    }
-    await writer.close();
-  })();
-  yield* stream.readable;
-  await writePromise;
+  yield* pipeIterable(source, new CsvStringifyStream(options));
 }
